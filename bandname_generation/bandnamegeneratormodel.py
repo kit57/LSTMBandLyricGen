@@ -1,7 +1,5 @@
 
 import keras
-from keras import layers
-from keras.models import Sequential
 from keras.utils import np_utils
 from keras.models import Sequential, load_model
 from keras.layers.core import Dense, Activation, Dropout
@@ -9,6 +7,7 @@ from keras.layers.recurrent import LSTM
 from keras.callbacks import ModelCheckpoint, Callback
 
 import numpy as np
+from pickle import dump
 import string, os
 
 
@@ -31,14 +30,17 @@ class char_model():
         corpus = self.clean_text(corpus=corpus)
 
         chars = list(set(corpus))
-        VOCAB_SIZE = len(chars)
+        self.VOCAB_SIZE = len(chars)
         char_to_ix = {char: ix for ix, char in enumerate(chars)} # char:index
         ix_to_char = {ix: char for ix, char in enumerate(chars)} # index:char
 
-        return corpus, char_to_ix, ix_to_char, VOCAB_SIZE, chars
+        combined = [char_to_ix, ix_to_char]
+        dump(combined, open('model/save/dict.pkl', 'wb'))
+
+        return corpus, char_to_ix, ix_to_char, chars
 
     def prepare_data(self):
-        corpus, char_to_ix, ix_to_char, VOCAB_SIZE, chars = self.get_data()
+        corpus, char_to_ix, ix_to_char, chars = self.get_data()
         # prepare the dataset of input to output pairs encoded as integers
         dataX = []
         dataY = []
@@ -53,7 +55,7 @@ class char_model():
         # reshape X to be [samples, time steps, features]
         self.X = np.reshape(dataX, (n_patterns, seq_lenght, 1))
         # normalize
-        self.X = self.X / float(VOCAB_SIZE)
+        self.X = self.X / float(self.VOCAB_SIZE)
         # one hot encode the output variable
         self.y = np_utils.to_categorical(dataY)
 
@@ -72,24 +74,17 @@ class char_model():
         self.prepare_data()
         self.LSTM_model()
 
-    def resume_training(self):
-
-        self.get_pretrained_data()
-        self.LSTM_model()
-
     def LSTM_model(self):
-
-        corpus, char_to_ix, ix_to_char, VOCAB_SIZE, chars = self.get_data()
 
         # Create the Keras LSTM structure
         N_UNITS = 150
 
         self.model = Sequential()
-        self.model.add(LSTM(N_UNITS, return_sequences=True, input_shape=(self.length, 1), kernel_initializer='he_normal'))
+        self.model.add(LSTM(N_UNITS, return_sequences=True, input_shape=(self.length, self.VOCAB_SIZE), kernel_initializer='he_normal'))
         self.model.add(Dropout(0.2))
         self.model.add(LSTM(N_UNITS, return_sequences=False, kernel_initializer='he_normal'))
         self.model.add(Dropout(0.2))
-        self.model.add(Dense(VOCAB_SIZE))
+        self.model.add(Dense(self.VOCAB_SIZE))
         # model.add(Dense(1000))
         self.model.add(Activation('softmax'))
 
@@ -109,20 +104,13 @@ class char_model():
                   self.y,
                   batch_size=self.batch_size,
                   epochs=self.epoch,
-                  validation_split=0.1,
+                  validation_split=0.25,
                   callbacks=[history, weights, early_stopping]
                   )
 
         print(history)
 
-    def get_pretrained_data(self):
 
-        # load pretrained model
-        self.model = load_model('model/bandGen.h5')
-        # load cleaned data
-        data = np.load('model/save/data.npz')
-        self.X = data['X_array']
-        self.y = data['y_array']
 
 
 # customize an History class that save losses to a file for each epoch
@@ -150,15 +138,11 @@ if __name__ == "__main__":
     file_path = '../data/metal_dataset/metal_bands.txt'
 
     length = 32
-    epoch = 10
-    batch_size = 512
+    epoch = 20
+    batch_size = 1024
 
     model = char_model(file_path, length, epoch, batch_size)
 
-    if not os.path.exists('model/bandGen.h5'):
-        print('<==========| Data preprocessing... |==========>')
-        model.train_model()
+    print('<==========| Data preprocessing... |==========>')
+    model.train_model()
 
-    else:
-        print('<==========| Resume from last training... |==========>')
-        model.resume_training()

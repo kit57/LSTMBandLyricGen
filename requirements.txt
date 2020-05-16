@@ -1,0 +1,6 @@
+pandas
+keras
+tensorflow
+numpy
+scikit-learn
+gensim
