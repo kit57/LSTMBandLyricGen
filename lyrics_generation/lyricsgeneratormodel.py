@@ -203,15 +203,15 @@ if __name__ == "__main__":
     file_path = '../data/lyrics_dataset/heavymetallyrics.txt'
 
     length = 25 # fixed length of input sequences
-    epoch = 35
+    epoch = 315
     batch_size = 1024
 
     model = wordlevel_model(file_path, length, epoch, batch_size)
-
+    model.train_model()
     # train or resume train
-    if not os.path.exists('Wordmodel/lyrics_metal_model.h5'):
-        print('<==========| Data preprocessing... |==========>')
-        model.train_model()
+    # if not os.path.exists('Wordmodel/lyrics_metal_model.h5'):
+    #     print('<==========| Data preprocessing... |==========>')
+    #     model.train_model()
 
     # else:
     #     print('<==========| Resume training... |==========>')
